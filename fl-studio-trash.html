@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple DAW</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #222; /* Dark background */
+            color: #eee;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .daw-container {
+            background-color: #333;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.6);
+            max-width: 900px;
+            width: 100%;
+            text-align: center;
+        }
+
+        h1 {
+            color: #00bcd4; /* Cyan for title */
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 1px 1px 5px rgba(0,0,0,0.4);
+        }
+
+        .sound-library {
+            margin-bottom: 30px;
+            padding: 15px;
+            background-color: #444;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .sound-item {
+            background-color: #555;
+            color: #00bcd4;
+            padding: 10px 18px;
+            border-radius: 6px;
+            cursor: grab; /* Indicate it's draggable */
+            font-size: 1.1em;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            border: 2px solid #00bcd4;
+        }
+
+        .sound-item:hover {
+            background-color: #666;
+            transform: translateY(-2px);
+        }
+
+        .sequencer {
+            border: 2px solid #00bcd4;
+            padding: 10px;
+            border-radius: 8px;
+            display: grid;
+            grid-template-columns: auto repeat(16, 1fr); /* Time steps + track names */
+            grid-auto-rows: 40px; /* Height of each step */
+            background-color: #2c2c2c;
+            gap: 2px;
+            overflow-x: auto; /* Add scroll if grid is too wide */
+        }
+
+        .track-name {
+            background-color: #444;
+            color: #00bcd4;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            padding: 0 10px;
+            grid-column: 1; /* Occupy the first column */
+            text-align: left;
+            white-space: nowrap; /* Prevent track names from wrapping */
+        }
+
+        .step {
+            background-color: #555;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: background-color 0.1s ease;
+            display: flex; /* For potential centered content */
+            align-items: center;
+            justify-content: center;
+        }
+
+        .step.active {
+            background-color: #00bcd4; /* Active step */
+        }
+
+        .step:hover:not(.active) {
+            background-color: #666;
+        }
+
+        .playback-controls {
+            margin-top: 30px;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            align-items: center; /* Vertically align items */
+            flex-wrap: wrap; /* Allow controls to wrap on smaller screens */
+        }
+
+        .control-button {
+            background-color: #8bc34a; /* Green */
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.2em;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            min-width: 100px; /* Ensure consistent button width */
+        }
+
+        .control-button:hover {
+            background-color: #6a9e3a;
+            transform: translateY(-2px);
+        }
+
+        .control-button:disabled {
+            background-color: #666;
+            cursor: not-allowed;
+        }
+
+        #tempo-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #ccc;
+        }
+
+        #tempo-control input[type="range"] {
+            cursor: pointer;
+            width: 120px;
+        }
+
+        #tempo-value {
+            font-weight: bold;
+            color: #00bcd4;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="daw-container">
+        <h1>Simple DAW Sequencer</h1>
+
+        <div class="sound-library">
+            <div class="sound-item" draggable="true" data-sound="kick" data-filename="kick.wav">Kick Drum</div>
+            <div class="sound-item" draggable="true" data-sound="snare" data-filename="snare.wav">Snare</div>
+            <div class="sound-item" draggable="true" data-sound="hihat" data-filename="hihat.wav">Hi-Hat</div>
+            <div class="sound-item" draggable="true" data-sound="808" data-filename="808.wav">808 Bass</div>
+            <!-- Add more sounds here -->
+        </div>
+
+        <div class="sequencer" id="sequencer-grid">
+            <!-- Grid cells will be generated by JavaScript -->
+        </div>
+
+        <div class="playback-controls">
+            <button id="playButton" class="control-button">Play</button>
+            <button id="stopButton" class="control-button" disabled>Stop</button>
+            <div id="tempo-control">
+                Tempo: <input type="range" id="tempoSlider" min="50" max="200" value="120">
+                <span id="tempo-value">120</span> BPM
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DOM Elements ---
+        const soundLibrary = document.querySelector('.sound-library');
+        const sequencerGrid = document.getElementById('sequencer-grid');
+        const playButton = document.getElementById('playButton');
+        const stopButton = document.getElementById('stopButton');
+        const tempoSlider = document.getElementById('tempoSlider');
+        const tempoValueDisplay = document.getElementById('tempo-value');
+
+        // --- Game Configuration ---
+        const NUM_STEPS = 16;
+        const SOUNDS = {
+            kick: { filename: 'sounds/kick.wav', url: 'https://github.com/alwaysgoobus/HTEMEL/raw/refs/heads/main/deep-kick-397047.mp3', audioBuffer: null, color: '#f44336' }, // Red
+            snare: { filename: 'sounds/snare.wav', url: 'https://github.com/alwaysgoobus/HTEMEL/raw/refs/heads/main/snare-112754.mp3', audioBuffer: null, color: '#ff9800' }, // Orange
+            hihat: { filename: 'sounds/hihat.wav', url: 'https://github.com/alwaysgoobus/HTEMEL/raw/refs/heads/main/kathetroid-hat-96057.mp3', audioBuffer: null, color: '#ffeb3b' }, // Yellow
+            '808': { filename: 'sounds/808.wav', url: 'https://github.com/alwaysgoobus/HTEMEL/raw/refs/heads/main/mpc_808_c2-41561.mp3', audioBuffer: null, color: '#2196f3' }      // Blue
+        };
+        // Track names should correspond to the keys in SOUNDS object, but use capitalized versions for display
+        const TRACK_NAMES = ['Kick', 'Snare', 'Hi-Hat', '808'];
+        let audioContext;
+        let isPlaying = false;
+        let currentStep = 0;
+        let tempo = 120; // BPM
+        let timerID = null;
+        let pattern = {}; // Stores the sequence: { trackName: [0, 0, 1, 0, 0, 1, ...] }
+        let activeCells = []; // Keep track of cells that are currently active for visual reset
+        let soundsLoaded = 0; // How many sounds have been loaded?
+        let soundsToLoad = Object.keys(SOUNDS).length;
+
+
+        // --- Initialization ---
+
+        // Preload sounds using Web Audio API
+        function preloadSounds() {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                console.log("AudioContext created.");
+
+                for (const soundName in SOUNDS) {
+                    const sound = SOUNDS[soundName];
+                    fetch(sound.url)
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error(`HTTP error! status: ${response.status} for ${sound.url}`);
+                            }
+                            return response.arrayBuffer();
+                        })
+                        .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
+                        .then(audioBuffer => {
+                            sound.audioBuffer = audioBuffer;
+                            soundsLoaded++; // Increment count
+                            console.log(`Loaded sound: ${soundName}`);
+
+                            // Enable the play button ONLY after all sounds are ready
+                            if (soundsLoaded === soundsToLoad) {
+                                console.log("All sounds loaded. DAW is ready.");
+                                playButton.disabled = false; // Enable Play button
+                            }
+                        })
+                        .catch(e => {
+                            console.error(`Error loading sound ${soundName} (${sound.url}):`, e);
+                            // You can add UI to show a loading failure here if needed
+                        });
+                }
+
+            } catch (e) {
+                console.error("Error initializing AudioContext:", e);
+                alert("Web Audio API is not supported in this browser or failed to initialize. Cannot play sounds.");
+                playButton.disabled = true; // Disable play button if AudioContext fails
+            }
+        }
+
+        // Create the sequencer grid dynamically
+        function createSequencerGrid() {
+            sequencerGrid.style.gridTemplateColumns = `auto repeat(${NUM_STEPS}, 1fr)`;
+            sequencerGrid.innerHTML = '';
+
+            TRACK_NAMES.forEach((trackName, index) => {
+                const trackKey = Object.keys(SOUNDS)[index]; // Get the key from SOUNDS object (e.g., 'kick')
+                const soundInfo = SOUNDS[trackKey];
+
+                const trackNameElement = document.createElement('div');
+                trackNameElement.classList.add('track-name');
+                trackNameElement.textContent = trackName;
+                trackNameElement.style.backgroundColor = soundInfo.color;
+                sequencerGrid.appendChild(trackNameElement);
+
+                pattern[trackName] = Array(NUM_STEPS).fill(0); // 0 = off, 1 = on
+
+                for (let step = 0; step < NUM_STEPS; step++) {
+                    const stepElement = document.createElement('div');
+                    stepElement.classList.add('step');
+                    stepElement.dataset.track = trackName;
+                    stepElement.dataset.step = step;
+                    stepElement.addEventListener('click', toggleStep);
+                    sequencerGrid.appendChild(stepElement);
+                }
+            });
+        }
+
+        // --- Drag and Drop Functionality ---
+        let draggedSoundInfo = null;
+
+        soundLibrary.addEventListener('dragstart', (e) => {
+            if (e.target.classList.contains('sound-item')) {
+                const soundName = e.target.dataset.sound;
+                const sound = SOUNDS[soundName];
+                draggedSoundInfo = {
+                    soundName: soundName,
+                    color: sound.color
+                };
+                e.dataTransfer.setData('application/json', JSON.stringify(draggedSoundInfo));
+                e.dataTransfer.effectAllowed = 'copy';
+                e.target.style.cursor = 'grabbing';
+            }
+        });
+
+        soundLibrary.addEventListener('dragend', (e) => {
+            if (e.target.classList.contains('sound-item')) {
+                e.target.style.cursor = 'grab';
+            }
+        });
+
+        sequencerGrid.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+        });
+
+        sequencerGrid.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const droppedSoundInfoString = e.dataTransfer.getData('application/json');
+            if (!droppedSoundInfoString) return;
+
+            const droppedSoundInfo = JSON.parse(droppedSoundInfoString);
+            const targetElement = e.target;
+
+            if (targetElement.classList.contains('step')) {
+                const trackName = targetElement.dataset.track;
+                const stepIndex = parseInt(targetElement.dataset.step);
+
+                if (pattern[trackName] && typeof pattern[trackName][stepIndex] !== 'undefined') {
+                    pattern[trackName][stepIndex] = 1;
+                    targetElement.classList.add('active');
+                    targetElement.style.backgroundColor = droppedSoundInfo.color;
+                    console.log(`Added ${droppedSoundInfo.soundName} to ${trackName} step ${stepIndex}`);
+                }
+            }
+        });
+
+        // --- Sequencer Logic ---
+
+        // Toggle a step ON/OFF
+        function toggleStep(e) {
+            const stepElement = e.target;
+            const trackName = stepElement.dataset.track;
+            const stepIndex = parseInt(stepElement.dataset.step);
+
+            if (pattern[trackName] && typeof pattern[trackName][stepIndex] !== 'undefined') {
+                const soundKey = trackName.toLowerCase(); // Ensure soundKey matches the SOUNDS keys
+
+                pattern[trackName][stepIndex] = pattern[trackName][stepIndex] === 0 ? 1 : 0; // Toggle
+                stepElement.classList.toggle('active');
+
+                if (pattern[trackName][stepIndex] === 1) {
+                    const sound = SOUNDS[soundKey];
+                    if(sound) {
+                       stepElement.style.backgroundColor = sound.color;
+                    } else {
+                        stepElement.style.backgroundColor = '#00bcd4'; // Default color
+                    }
+                } else {
+                    stepElement.style.backgroundColor = ''; // Reset to default step color
+                }
+            }
+        }
+
+        // Play the sequence
+        function playSequence() {
+            if (!audioContext) {
+                alert("Audio is not ready. Please wait a moment and try again.");
+                return;
+            }
+            if (isPlaying) return;
+
+            isPlaying = true;
+            playButton.textContent = 'Pause';
+            stopButton.disabled = false;
+            tempo = parseInt(tempoSlider.value);
+            activeCells = []; // Clear previous active cells list
+            currentStep = 0;
+
+            playBeat();
+        }
+
+        // Pause the sequence
+        function pauseSequence() {
+            if (!isPlaying) return;
+            isPlaying = false;
+            playButton.textContent = 'Play';
+            clearTimeout(timerID);
+        }
+
+        // Stop the sequence and reset
+        function stopSequence() {
+            if (!isPlaying && currentStep === 0 && activeCells.length === 0) return; // Already stopped
+
+            isPlaying = false;
+            playButton.textContent = 'Play';
+            clearTimeout(timerID);
+            currentStep = 0;
+            // Reset visual feedback for all steps that were active
+            activeCells.forEach(cell => {
+                cell.classList.remove('active');
+                cell.style.backgroundColor = '';
+            });
+            activeCells = []; // Clear the list
+        }
+
+        // Function to play the current beat step
+        function playBeat() {
+            if (!isPlaying) return;
+
+            const bpm = parseInt(tempoSlider.value);
+            const stepDuration = (60 / bpm) * 1000;
+
+             // Get all steps for current step index, in case there are multiple rows in sequence
+             const currentStepCells = document.querySelectorAll(`.step[data-step="${currentStep}"]`);
+
+             currentStepCells.forEach(cell => {
+                const trackName = cell.dataset.track;
+                const stepIndex = parseInt(cell.dataset.step);
+
+                // Check for the sounds on the current step, and play them
+                if (pattern[trackName] && pattern[trackName][stepIndex] === 1) {
+                    const soundKey = trackName.toLowerCase();  // Get sound key by trackName
+                    const sound = SOUNDS[soundKey];
+
+                    //if sound is available play it
+                    if (sound && sound.audioBuffer) {
+                        // Create a NEW AudioBufferSourceNode for each playback event
+                        const source = audioContext.createBufferSource();
+                        source.buffer = sound.audioBuffer;
+                        source.connect(audioContext.destination);
+                        source.start(0); // Play the sound immediately
+                        // Highlight the step *AFTER* playing the sound
+                    } else {
+                        console.warn(`Sound ${soundKey} not loaded or invalid.`);
+                    }
+                }
+            });
+            // Highlight the cells *after* sounds for the step have been played and when the sequence is active
+            // Set active states if the current step has a sound, and when the sequence is active
+            currentStepCells.forEach(cell => {
+                const trackName = cell.dataset.track;
+                const stepIndex = parseInt(cell.dataset.step);
+
+                if (pattern[trackName] && pattern[trackName][stepIndex] === 1) {
+                        cell.classList.add('active');
+                        cell.style.backgroundColor = SOUNDS[trackName.toLowerCase()]?.color || '#00bcd4'; // Apply sound color
+                        activeCells.push(cell); // Track cells to reset later
+                }
+            });
+
+
+            currentStep++;
+            if (currentStep >= NUM_STEPS) {
+                currentStep = 0; // Loop back to the start
+            }
+
+            // Schedule the next beat
+            timerID = setTimeout(playBeat, stepDuration);
+        }
+
+        // --- Event Listeners ---
+        playButton.addEventListener('click', () => {
+            if (isPlaying) {
+                pauseSequence();
+            } else {
+                playSequence();
+            }
+        });
+        stopButton.addEventListener('click', stopSequence);
+        tempoSlider.addEventListener('input', (e) => {
+            tempo = parseInt(e.target.value);
+            tempoValueDisplay.textContent = tempo;
+            // If playing, the new tempo will be used on the next beat calculation
+        });
+
+        // --- Initialization ---
+        preloadSounds();
+        createSequencerGrid();
+        tempoValueDisplay.textContent = tempoSlider.value; // Initialize tempo display
+        playButton.disabled = true; // Disable play button initially, until sounds load
+
+    </script>
+
+</body>
+</html>
