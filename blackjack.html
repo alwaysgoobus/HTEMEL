@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Blackjack</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #333;
+            color: #eee;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .game-container {
+            background-color: #28a745; /* Green felt color */
+            padding: 30px 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
+        }
+
+        h1 {
+            color: #ffeb3b; /* Yellow for title */
+            margin-bottom: 25px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        h2 {
+            margin-top: 20px;
+            color: #fff;
+            font-size: 1.5em;
+        }
+
+        .cards-display {
+            min-height: 50px; /* To prevent layout shift */
+            margin-bottom: 15px;
+        }
+
+        .cards-display span {
+            font-size: 1.2em;
+            margin: 0 5px;
+            display: inline-block;
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+
+        .buttons-container button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            margin: 0 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1em;
+            transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out;
+            min-width: 100px; /* Ensure buttons are somewhat uniform */
+        }
+
+        .buttons-container button:hover {
+            background-color: #0056b3;
+            transform: translateY(-2px);
+        }
+
+        .buttons-container button:active {
+            transform: translateY(0);
+        }
+
+        .buttons-container button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+
+        #result {
+            margin-top: 30px;
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #ffc107; /* Yellow for results */
+            min-height: 40px; /* To prevent layout shift */
+        }
+
+        #restartButton {
+            background-color: #dc3545; /* Red for restart */
+            margin-top: 20px;
+            padding: 15px 30px;
+            font-size: 1.2em;
+            display: none; /* Hidden until game ends */
+        }
+
+        #restartButton:hover {
+            background-color: #c82333;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <h1>Blackjack</h1>
+
+        <h2>Dealer's Hand: <span id="dealerCards" class="cards-display"></span> (<span id="dealerScore">0</span>)</h2>
+        <h2>Your Hand: <span id="playerCards" class="cards-display"></span> (<span id="playerScore">0</span>)</h2>
+
+        <div class="buttons-container">
+            <button id="hitButton">Hit</button>
+            <button id="standButton">Stand</button>
+        </div>
+
+        <p id="result"></p>
+
+        <button id="restartButton">Restart Game</button>
+    </div>
+
+    <script>
+        // DOM Elements
+        const dealerCardsElement = document.getElementById('dealerCards');
+        const dealerScoreElement = document.getElementById('dealerScore');
+        const playerCardsElement = document.getElementById('playerCards');
+        const playerScoreElement = document.getElementById('playerScore');
+        const resultElement = document.getElementById('result');
+        const hitButton = document.getElementById('hitButton');
+        const standButton = document.getElementById('standButton');
+        const restartButton = document.getElementById('restartButton');
+
+        // Game State
+        let deck = [];
+        let playerHand = [];
+        let dealerHand = [];
+        let playerPoints = 0;
+        let dealerPoints = 0;
+        let gameOver = false;
+        let dealerFirstCardHidden = false; // New flag to manage dealer's initial hidden card
+
+        // --- Game Functions ---
+
+        // 1. Create a fresh deck of cards
+        function createDeck() {
+            const suits = ['♠', '♥', '♦', '♣'];
+            const ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+            let newDeck = [];
+            for (let suit of suits) {
+                for (let rank of ranks) {
+                    newDeck.push({ rank: rank, suit: suit });
+                }
+            }
+            return newDeck;
+        }
+
+        // 2. Shuffle the deck
+        function shuffleDeck(deck) {
+            for (let i = deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [deck[i], deck[j]] = [deck[j], deck[i]]; // Swap
+            }
+        }
+
+        // 3. Get the value of a card
+        function getCardValue(card) {
+            if (['J', 'Q', 'K'].includes(card.rank)) {
+                return 10;
+            } else if (card.rank === 'A') {
+                return 11; // Initial value, will be adjusted later for soft aces
+            } else {
+                return parseInt(card.rank);
+            }
+        }
+
+        // 4. Calculate total points for a hand (handles Aces)
+        function calculateHandPoints(hand) {
+            let points = 0;
+            let numAces = 0;
+
+            for (let card of hand) {
+                points += getCardValue(card);
+                if (card.rank === 'A') {
+                    numAces++;
+                }
+            }
+
+            // Adjust for Aces if busted
+            while (points > 21 && numAces > 0) {
+                points -= 10; // Change Ace from 11 to 1
+                numAces--;
+            }
+            return points;
+        }
+
+        // 5. Deal a single card
+        function dealCard(hand) {
+            if (deck.length === 0) {
+                console.error("Deck is empty!");
+                return;
+            }
+            hand.push(deck.pop());
+        }
+
+        // 6. Update the display for cards and scores
+        function updateDisplay() {
+            // Player's Hand
+            playerCardsElement.innerHTML = playerHand.map(card => `<span>${card.rank}${card.suit}</span>`).join('');
+            playerScoreElement.textContent = playerPoints;
+
+            // Dealer's Hand
+            if (dealerFirstCardHidden && dealerHand.length > 0) {
+                // Show first card as hidden, rest as visible
+                dealerCardsElement.innerHTML = `<span>?</span>` + // Placeholder for hidden card
+                                                dealerHand.slice(1).map(card => `<span>${card.rank}${card.suit}</span>`).join('');
+                dealerScoreElement.textContent = '?'; // Hide dealer's score initially
+            } else {
+                // Show all dealer cards and score
+                dealerCardsElement.innerHTML = dealerHand.map(card => `<span>${card.rank}${card.suit}</span>`).join('');
+                dealerScoreElement.textContent = dealerPoints;
+            }
+        }
+
+        // 7. Check for game over conditions
+        function checkGameOver() {
+            if (playerPoints > 21) {
+                resultElement.textContent = "Bust! You Lose!";
+                endGame();
+            } else if (playerPoints === 21) {
+                // Player got 21, but dealer might still play
+                // This will be fully resolved after dealer plays or if dealer also has 21.
+                // For now, we just enable stand and wait.
+            }
+        }
+
+        // 8. End the game (disable buttons, show restart)
+        function endGame() {
+            gameOver = true;
+            hitButton.disabled = true;
+            standButton.disabled = true;
+            restartButton.style.display = 'block';
+        }
+
+        // --- Game Flow ---
+
+        function startGame() {
+            deck = createDeck();
+            shuffleDeck(deck);
+            playerHand = [];
+            dealerHand = [];
+            playerPoints = 0;
+            dealerPoints = 0;
+            gameOver = false;
+            dealerFirstCardHidden = true; // Dealer's first card will be hidden initially
+            resultElement.textContent = '';
+
+            // Reset buttons
+            hitButton.disabled = false;
+            standButton.disabled = false;
+            restartButton.style.display = 'none';
+
+            // Initial deal
+            dealCard(playerHand);
+            dealCard(dealerHand); // Dealer's first card (will be hidden)
+            dealCard(playerHand);
+            dealCard(dealerHand); // Dealer's second card (face up)
+
+            playerPoints = calculateHandPoints(playerHand);
+            dealerPoints = calculateHandPoints(dealerHand); // Calculate full dealer score internally
+
+            updateDisplay(); // Initial display, with dealer's first card hidden
+
+            // Check for initial Blackjack
+            if (playerPoints === 21) {
+                dealerFirstCardHidden = false; // Reveal dealer's hand if player has Blackjack
+                updateDisplay();
+                if (dealerPoints === 21) {
+                    resultElement.textContent = "Both have Blackjack! It's a Push!";
+                } else {
+                    resultElement.textContent = "Blackjack! You Win!";
+                }
+                endGame();
+            } else if (dealerPoints === 21) {
+                // If dealer has blackjack immediately (rare on first two cards without player bust/BJ)
+                dealerFirstCardHidden = false;
+                updateDisplay();
+                resultElement.textContent = "Dealer has Blackjack! You Lose!";
+                endGame();
+            }
+        }
+
+        function playerHit() {
+            if (gameOver) return;
+
+            dealCard(playerHand);
+            playerPoints = calculateHandPoints(playerHand);
+            updateDisplay(); // Update display after player hits
+            checkGameOver();
+
+            if (playerPoints === 21) {
+                // If player hits 21, their turn is over, dealer plays
+                playerStand(); // Automatically stand if player hits 21
+            }
+        }
+
+        function playerStand() {
+            if (gameOver) return;
+
+            dealerFirstCardHidden = false; // Reveal dealer's hidden card
+            updateDisplay(); // Update display to show dealer's full hand
+
+            // Dealer's turn
+            while (dealerPoints < 17) {
+                dealCard(dealerHand);
+                dealerPoints = calculateHandPoints(dealerHand);
+                updateDisplay(); // Update display after each dealer card
+            }
+
+            // Determine winner
+            if (dealerPoints > 21) {
+                resultElement.textContent = "Dealer busts! You Win!";
+            } else if (playerPoints > dealerPoints) {
+                resultElement.textContent = "You Win!";
+            } else if (dealerPoints > playerPoints) {
+                resultElement.textContent = "Dealer Wins!";
+            } else {
+                resultElement.textContent = "It's a Push!"; // Tie
+            }
+            endGame();
+        }
+
+        // --- Event Listeners ---
+        hitButton.addEventListener('click', playerHit);
+        standButton.addEventListener('click', playerStand);
+        restartButton.addEventListener('click', startGame);
+
+        // Initial game start when page loads
+        startGame();
+
+    </script>
+</body>
+</html>
