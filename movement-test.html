@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple 2D Game</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #1a1a1a; /* Dark background */
+            font-family: 'Arial', sans-serif;
+            color: #e0e0e0;
+        }
+        canvas {
+            background-color: #333; /* Darker background for the game area */
+            border: 2px solid #555;
+        }
+        #game-info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-size: 0.9em;
+            background-color: rgba(0,0,0,0.5);
+            padding: 5px;
+            border-radius: 3px;
+            z-index: 1000;
+        }
+        #controls {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            color: white;
+            font-size: 0.9em;
+            background-color: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 3px;
+            line-height: 1.5;
+            z-index: 1000;
+        }
+        #controls b { color: yellow; }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div id="game-info">2D Game</div>
+    <div id="controls">
+        <b>Controls:</b><br>
+        Arrow Keys: Move<br>
+        Collect Green Circles, Avoid Red Squares!
+    </div>
+
+    <script>
+        // --- Game Canvas Setup ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d'); // Get the 2D rendering context
+
+        // Set canvas to fill the window (will be resized)
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas(); // Initial resize
+
+        // --- Game Configuration ---
+        const PLAYER_SIZE = 20;
+        const PLAYER_COLOR = '#4CAF50'; // Green for player
+        const FOOD_SIZE = 15;
+        const FOOD_COLOR = '#FFC107'; // Yellow for food (rewards)
+        const OBSTACLE_SIZE = 25;
+        const OBSTACLE_COLOR = '#E74C3C'; // Red for obstacles
+        const PLAYER_SPEED = 4; // Pixels per frame
+
+        const NUM_FOOD_ITEMS = 15;
+        const NUM_OBSTACLES = 8;
+
+        // --- Game State ---
+        let player = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            size: PLAYER_SIZE,
+            color: PLAYER_COLOR,
+            dx: 0, // Horizontal movement
+            dy: 0  // Vertical movement
+        };
+
+        let food = [];
+        let obstacles = [];
+        let score = 0;
+        let gameOver = false;
+
+        // --- Input Handling ---
+        const keys = {};
+        document.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
+            e.preventDefault(); // Prevent default browser actions like scrolling
+        });
+        document.addEventListener('keyup', (e) => {
+            keys[e.key.toLowerCase()] = false;
+            e.preventDefault();
+        });
+
+        // --- Game Objects ---
+
+        // Create a food item at a random position
+        function createFood() {
+            return {
+                x: Math.random() * (canvas.width - FOOD_SIZE) + FOOD_SIZE / 2,
+                y: Math.random() * (canvas.height - FOOD_SIZE) + FOOD_SIZE / 2,
+                size: FOOD_SIZE,
+                color: FOOD_COLOR
+            };
+        }
+
+        // Create an obstacle at a random position
+        function createObstacle() {
+            return {
+                x: Math.random() * (canvas.width - OBSTACLE_SIZE) + OBSTACLE_SIZE / 2,
+                y: Math.random() * (canvas.height - OBSTACLE_SIZE) + OBSTACLE_SIZE / 2,
+                size: OBSTACLE_SIZE,
+                color: OBSTACLE_COLOR
+            };
+        }
+
+        // Initialize game objects
+        function initGame() {
+            // Ensure player starts in the center of the screen, adjusted for size
+            player.x = canvas.width / 2;
+            player.y = canvas.height / 2;
+            player.dx = 0;
+            player.dy = 0;
+            score = 0;
+            gameOver = false;
+
+            food = [];
+            for (let i = 0; i < NUM_FOOD_ITEMS; i++) {
+                food.push(createFood());
+            }
+
+            obstacles = [];
+            for (let i = 0; i < NUM_OBSTACLES; i++) {
+                obstacles.push(createObstacle());
+            }
+        }
+
+        // --- Game Logic ---
+
+        // Update player position based on input
+        function updatePlayer() {
+            if (keys['arrowup'] || keys['w']) {
+                player.y -= PLAYER_SPEED;
+            }
+            if (keys['arrowdown'] || keys['s']) {
+                player.y += PLAYER_SPEED;
+            }
+            if (keys['arrowleft'] || keys['a']) {
+                player.x -= PLAYER_SPEED;
+            }
+            if (keys['arrowright'] || keys['d']) {
+                player.x += PLAYER_SPEED;
+            }
+
+            // Keep player within canvas bounds
+            player.x = Math.max(player.size / 2, Math.min(canvas.width - player.size / 2, player.x));
+            player.y = Math.max(player.size / 2, Math.min(canvas.height - player.size / 2, player.y));
+        }
+
+        // Check for collisions between player and food/obstacles
+        function checkCollisions() {
+            // Collision with food
+            for (let i = food.length - 1; i >= 0; i--) {
+                const item = food[i];
+                const dist = Math.sqrt((player.x - item.x)**2 + (player.y - item.y)**2);
+                if (dist < player.size / 2 + item.size / 2) {
+                    score++;
+                    food.splice(i, 1); // Remove collected food
+                    food.push(createFood()); // Add new food
+                    document.getElementById('game-info').textContent = `Score: ${score}`;
+                }
+            }
+
+            // Collision with obstacles
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                const item = obstacles[i];
+                const dist = Math.sqrt((player.x - item.x)**2 + (player.y - item.y)**2);
+                if (dist < player.size / 2 + item.size / 2) {
+                    gameOver = true;
+                    document.getElementById('game-info').textContent = `Game Over! Final Score: ${score}`;
+                    break; // Exit loop if game over
+                }
+            }
+        }
+
+        // --- Drawing Functions ---
+
+        // Clear the entire canvas
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // Draw a rectangle (for player and obstacles)
+        function drawRect(x, y, size, color) {
+            ctx.fillStyle = color;
+            ctx.fillRect(x - size / 2, y - size / 2, size, size); // Draw centered
+        }
+
+        // Draw a circle (for food)
+        function drawCircle(x, y, radius, color) {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Draw all game elements
+        function drawGame() {
+            clearCanvas();
+
+            // Draw player
+            drawRect(player.x, player.y, player.size, player.color);
+
+            // Draw food
+            food.forEach(item => {
+                drawCircle(item.x, item.y, item.size / 2, item.color);
+            });
+
+            // Draw obstacles
+            obstacles.forEach(item => {
+                drawRect(item.x, item.y, item.size, item.color);
+            });
+
+            // Display score (updated in collision logic)
+            document.getElementById('game-info').textContent = `Score: ${score}`;
+        }
+
+        // --- Game Loop ---
+        function gameLoop(currentTime) {
+            if (gameOver) {
+                // Display game over message and stop loop
+                // You could add a restart button here
+                return;
+            }
+
+            updatePlayer();
+            checkCollisions();
+            drawGame();
+
+            requestAnimationFrame(gameLoop); // Request the next frame
+        }
+
+        // --- Initialization ---
+        initGame(); // Set up initial game state
+        requestAnimationFrame(gameLoop); // Start the game loop
+    </script>
+</body>
+</html>
