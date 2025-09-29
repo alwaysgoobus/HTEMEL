@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minesweeper</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f0f0;
+        }
+
+        #game-board {
+            display: grid;
+            grid-gap: 2px;
+            background-color: #ccc;
+            border: 2px solid #888;
+        }
+
+        .cell {
+            width: 30px;
+            height: 30px;
+            background-color: #eee;
+            border: 1px solid #bbb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            cursor: pointer;
+            user-select: none; /* Prevent text selection */
+        }
+
+        .revealed {
+            background-color: #fff;
+            border: 1px solid #aaa;
+            cursor: default;
+        }
+
+        .mine {
+            background-color: red;
+            color: white;
+        }
+
+        #message {
+            margin-top: 20px;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+
+        #options {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        #options label {
+          margin-bottom: 5px;
+        }
+
+        #options input {
+          margin-left: 5px;
+          width: 60px;
+          text-align: center;
+        }
+
+        #restart-button {
+            margin-top: 10px;
+            padding: 10px 20px;
+            font-size: 1em;
+            cursor: pointer;
+            background-color: #4CAF50; /* Green */
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+
+        #restart-button:hover {
+            background-color: #367C39;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Minesweeper</h1>
+
+    <div id="options">
+      <label for="boardSize">Board Size:</label>
+      <input type="number" id="boardSize" value="10" min="5" max="20">
+
+      <label for="mineCount">Mine Count:</label>
+      <input type="number" id="mineCount" value="15" min="1" max="40">
+    </div>
+
+    <div id="game-board"></div>
+
+    <p id="message"></p>
+
+    <button id="restart-button">Restart Game</button>
+
+    <script>
+        // --- DOM Elements ---
+        const boardElement = document.getElementById('game-board');
+        const messageElement = document.getElementById('message');
+        const restartButton = document.getElementById('restart-button');
+        const boardSizeInput = document.getElementById('boardSize');
+        const mineCountInput = document.getElementById('mineCount');
+
+        // --- Game Variables ---
+        let boardSize = 10;
+        let mineCount = 15;
+        let board = [];
+        let gameOver = false;
+
+        // --- Game Functions ---
+
+        // 1. Create the board array (2D)
+        function createBoard() {
+            board = [];
+            for (let i = 0; i < boardSize; i++) {
+                board[i] = [];
+                for (let j = 0; j < boardSize; j++) {
+                    board[i][j] = {
+                        isMine: false,
+                        isRevealed: false,
+                        adjacentMines: 0,
+                        element: null // DOM element for the cell
+                    };
+                }
+            }
+        }
+
+        // 2. Place mines randomly on the board
+        function placeMines() {
+            let minesPlaced = 0;
+            while (minesPlaced < mineCount) {
+                const row = Math.floor(Math.random() * boardSize);
+                const col = Math.floor(Math.random() * boardSize);
+
+                if (!board[row][col].isMine) {
+                    board[row][col].isMine = true;
+                    minesPlaced++;
+                }
+            }
+        }
+
+        // 3. Calculate adjacent mine counts for each cell
+        function calculateAdjacentMines() {
+            for (let row = 0; row < boardSize; row++) {
+                for (let col = 0; col < boardSize; col++) {
+                    if (!board[row][col].isMine) {
+                        let count = 0;
+                        for (let i = -1; i <= 1; i++) {
+                            for (let j = -1; j <= 1; j++) {
+                                if (i === 0 && j === 0) continue; // Skip the cell itself
+
+                                const newRow = row + i;
+                                const newCol = col + j;
+
+                                if (newRow >= 0 && newRow < boardSize && newCol >= 0 && newCol < boardSize && board[newRow][newCol].isMine) {
+                                    count++;
+                                }
+                            }
+                        }
+                        board[row][col].adjacentMines = count;
+                    }
+                }
+            }
+        }
+
+        // 4. Create the visual representation of the board (DOM elements)
+        function renderBoard() {
+            boardElement.innerHTML = ''; // Clear existing board
+            boardElement.style.gridTemplateColumns = `repeat(${boardSize}, 1fr)`; // Dynamically set columns
+
+            for (let row = 0; row < boardSize; row++) {
+                for (let col = 0; col < boardSize; col++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell');
+                    cell.dataset.row = row;
+                    cell.dataset.col = col;
+
+                    cell.addEventListener('click', cellClickHandler);
+
+                    boardElement.appendChild(cell);
+                    board[row][col].element = cell; // Store the element for easy access
+                }
+            }
+        }
+
+        // 5. Handle cell click events
+        function cellClickHandler(event) {
+            if (gameOver) return;
+
+            const row = parseInt(event.target.dataset.row);
+            const col = parseInt(event.target.dataset.col);
+
+            revealCell(row, col);
+        }
+
+        // 6. Reveal a cell and handle game logic
+        function revealCell(row, col) {
+            if (row < 0 || row >= boardSize || col < 0 || col >= boardSize) return; // Out of bounds
+            if (board[row][col].isRevealed) return; // Already revealed
+
+            const cell = board[row][col];
+            cell.isRevealed = true;
+            cell.element.classList.add('revealed');
+
+            if (cell.isMine) {
+                // Game over - player hit a mine
+                cell.element.classList.add('mine');
+                cell.element.textContent = '💣'; // Mine icon
+                gameOverSequence();
+            } else {
+                if (cell.adjacentMines > 0) {
+                    cell.element.textContent = cell.adjacentMines;
+                } else {
+                    // Reveal adjacent cells recursively (flood fill)
+                    for (let i = -1; i <= 1; i++) {
+                        for (let j = -1; j <= 1; j++) {
+                            if (i === 0 && j === 0) continue;
+
+                            const newRow = row + i;
+                            const newCol = col + j;
+
+                            revealCell(newRow, newCol); // Recursive call
+                        }
+                    }
+                }
+                checkWinCondition();
+            }
+        }
+
+        // 7. Game over sequence (reveal all mines)
+        function gameOverSequence() {
+            gameOver = true;
+            messageElement.textContent = "Game Over! You hit a mine.";
+
+            // Reveal all mines
+            for (let row = 0; row < boardSize; row++) {
+                for (let col = 0; col < boardSize; col++) {
+                    if (board[row][col].isMine) {
+                        board[row][col].element.classList.add('mine');
+                        board[row][col].element.textContent = '💣';
+                    }
+                }
+            }
+        }
+
+        // 8. Check if the player has won
+        function checkWinCondition() {
+            let unrevealedCount = 0;
+            for (let row = 0; row < boardSize; row++) {
+                for (let col = 0; col < boardSize; col++) {
+                    if (!board[row][col].isRevealed) {
+                        unrevealedCount++;
+                    }
+                }
+            }
+
+            if (unrevealedCount === mineCount) {
+                // All non-mine cells have been revealed
+                gameOver = true;
+                messageElement.textContent = "You Win! You found all the mines.";
+            }
+        }
+
+        // 9. Restart the game
+        function startGame() {
+            boardSize = parseInt(boardSizeInput.value);
+            mineCount = parseInt(mineCountInput.value);
+
+            if(mineCount >= boardSize * boardSize) {
+              alert("Too many mines for this board size!");
+              return;
+            }
+
+            gameOver = false;
+            messageElement.textContent = "";
+
+            createBoard();
+            placeMines();
+            calculateAdjacentMines();
+            renderBoard();
+        }
+
+        // --- Event Listeners ---
+        restartButton.addEventListener('click', startGame);
+
+        // --- Initialize the game on page load ---
+        startGame();
+
+    </script>
+
+</body>
+</html>
