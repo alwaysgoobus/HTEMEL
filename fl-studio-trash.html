@@ -151,6 +151,18 @@
             border-color: #f44336;
         }
 
+        /* Reset Button specific styling (optional, but good for visual distinction) */
+        #resetButton {
+            color: #ff5722; /* Use the secondary accent color for the text */
+            border-color: #ff5722;
+            background-color: var(--container-dark); /* Darker background */
+        }
+        #resetButton:hover {
+            background-color: #ff5722;
+            color: black;
+        }
+
+
         .control-button:hover {
             background-color: #444;
             transform: translateY(-1px);
@@ -231,6 +243,7 @@
         <div class="playback-controls">
             <button id="playButton" class="control-button">Loading...</button>
             <button id="stopButton" class="control-button" disabled>Stop</button>
+            <button id="resetButton" class="control-button">Reset Pattern</button>
             <div id="tempo-control">
                 <label for="tempoSlider">Tempo:</label> 
                 <span id="tempo-value">120</span> <span style="color:#999">BPM</span>
@@ -244,15 +257,15 @@
         const sequencerGrid = document.getElementById('sequencer-grid');
         const playButton = document.getElementById('playButton');
         const stopButton = document.getElementById('stopButton');
+        const resetButton = document.getElementById('resetButton'); // NEW
         const tempoSlider = document.getElementById('tempoSlider');
         const tempoValueDisplay = document.getElementById('tempo-value');
 
         // --- Game Configuration ---
         const NUM_STEPS = 16;
-        const GITHUB_SOUNDS_BASE_URL = 'https://raw.githubusercontent.com/alwaysgoobus/HTEMEL/main/sounds/'; // NEW BASE URL
+        const GITHUB_SOUNDS_BASE_URL = 'https://raw.githubusercontent.com/alwaysgoobus/HTEMEL/main/sounds/';
 
         const SOUNDS = {
-            // UPDATED URLs to include the /sounds/ folder prefix
             kick: { display: 'KICK', url: GITHUB_SOUNDS_BASE_URL + 'deep-kick-397047.mp3', audioBuffer: null, color: '#f44336', loaded: false, error: false }, 
             snare: { display: 'SNARE', url: GITHUB_SOUNDS_BASE_URL + 'snare-112754.mp3', audioBuffer: null, color: '#ff9800', loaded: false, error: false },
             hihat: { display: 'HI-HAT', url: GITHUB_SOUNDS_BASE_URL + 'kathetroid-hat-96057.mp3', audioBuffer: null, color: '#00bcd4', loaded: false, error: false },
@@ -402,6 +415,33 @@
             }
         }
 
+        /**
+         * Clears all steps in the sequencer pattern and resets the visual grid.
+         */
+        function resetPattern() {
+            // 1. Stop the sequence if it's currently playing
+            if (isPlaying) {
+                stopSequence();
+            }
+
+            // 2. Reset the pattern data
+            TRACK_NAMES.forEach(trackName => {
+                pattern[trackName].fill(0);
+            });
+
+            // 3. Reset the visual state of all steps
+            const allSteps = document.querySelectorAll('.step');
+            allSteps.forEach(step => {
+                step.classList.remove('active');
+                step.classList.remove('playing-beat');
+                step.style.backgroundColor = ''; 
+                step.style.color = ''; 
+            });
+
+            console.log("Pattern has been reset.");
+        }
+
+
         // Play the sequence
         function playSequence() {
             // Resume AudioContext if suspended (required by many browsers for first playback)
@@ -513,6 +553,9 @@
 
         stopButton.addEventListener('click', stopSequence);
         
+        // NEW EVENT LISTENER
+        resetButton.addEventListener('click', resetPattern); 
+
         tempoSlider.addEventListener('input', (e) => {
             tempo = parseInt(e.target.value);
             tempoValueDisplay.textContent = tempo;
