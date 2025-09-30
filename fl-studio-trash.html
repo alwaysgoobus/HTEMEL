@@ -223,7 +223,7 @@
 <body>
 
     <div class="daw-container">
-        <h1>FL Studio but bad</h1>
+        <h1>Fl Studio but bad</h1>
 
         <div class="sequencer" id="sequencer-grid">
             </div>
@@ -246,16 +246,17 @@
         const stopButton = document.getElementById('stopButton');
         const tempoSlider = document.getElementById('tempoSlider');
         const tempoValueDisplay = document.getElementById('tempo-value');
-        // Removed: soundLibrary, testControls
 
         // --- Game Configuration ---
         const NUM_STEPS = 16;
+        const GITHUB_SOUNDS_BASE_URL = 'https://raw.githubusercontent.com/alwaysgoobus/HTEMEL/main/sounds/'; // NEW BASE URL
+
         const SOUNDS = {
-            // Updated to be more consistent with a DAW's channel strip
-            kick: { display: 'KICK', url: 'https://raw.githubusercontent.com/alwaysgoobus/HTEMEL/main/deep-kick-397047.mp3', audioBuffer: null, color: '#f44336', loaded: false, error: false }, // Red
-            snare: { display: 'SNARE', url: 'https://raw.githubusercontent.com/alwaysgoobus/HTEMEL/main/snare-112754.mp3', audioBuffer: null, color: '#ff9800', loaded: false, error: false }, // Orange
-            hihat: { display: 'HI-HAT', url: 'https://raw.githubusercontent.com/alwaysgoobus/HTEMEL/main/kathetroid-hat-96057.mp3', audioBuffer: null, color: '#00bcd4', loaded: false, error: false }, // Cyan (New Hi-Hat color)
-            '808': { display: '808 BASS', url: 'https://raw.githubusercontent.com/alwaysgoobus/HTEMEL/main/mpc_808_c2-41561.mp3', audioBuffer: null, color: '#9c27b0', loaded: false, error: false } // Purple (New 808 color)
+            // UPDATED URLs to include the /sounds/ folder prefix
+            kick: { display: 'KICK', url: GITHUB_SOUNDS_BASE_URL + 'deep-kick-397047.mp3', audioBuffer: null, color: '#f44336', loaded: false, error: false }, 
+            snare: { display: 'SNARE', url: GITHUB_SOUNDS_BASE_URL + 'snare-112754.mp3', audioBuffer: null, color: '#ff9800', loaded: false, error: false },
+            hihat: { display: 'HI-HAT', url: GITHUB_SOUNDS_BASE_URL + 'kathetroid-hat-96057.mp3', audioBuffer: null, color: '#00bcd4', loaded: false, error: false },
+            '808': { display: '808 BASS', url: GITHUB_SOUNDS_BASE_URL + 'mpc_808_c2-41561.mp3', audioBuffer: null, color: '#9c27b0', loaded: false, error: false }
         };
         
         const TRACK_NAMES = Object.values(SOUNDS).map(s => s.display); 
@@ -278,7 +279,7 @@
             sound.error = true;
             console.error(`Error loading sound ${soundKey} from ${sound.url}:`, error);
 
-            soundsLoadedCount++; // Still count as processed
+            soundsLoadedCount++; 
 
             if (soundsLoadedCount === soundsToLoad) {
                  const allSoundsFailed = Object.values(SOUNDS).every(s => s.error);
@@ -297,8 +298,6 @@
 
         function preloadSounds() {
             try {
-                // Initialize AudioContext on a user gesture (like a button click)
-                // but we create it here to start the preload process.
                 if (!audioContext) {
                     audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 }
@@ -414,7 +413,7 @@
 
             isPlaying = true;
             playButton.textContent = 'PAUSE';
-            playButton.style.backgroundColor = 'var(--accent-main)'; /* Change color when playing/paused */
+            playButton.style.backgroundColor = 'var(--accent-main)'; 
             playButton.style.borderColor = '#4dd0e1'; 
             stopButton.disabled = false;
             tempo = parseInt(tempoSlider.value);
@@ -427,7 +426,7 @@
             if (!isPlaying) return;
             isPlaying = false;
             playButton.textContent = 'PLAY';
-            playButton.style.backgroundColor = 'var(--accent-active)'; /* Restore color to Play */
+            playButton.style.backgroundColor = 'var(--accent-active)'; 
             playButton.style.borderColor = '#ff8a65';
             clearTimeout(timerID);
         }
