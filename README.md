@@ -1,4 +1,4 @@
-  Random projects/game made in html runnable in your chromebook/windows device. Just download the game you want it will be ready for you.
+  Random projects/game made in html runnable in your chromebook/windows device. Just click the links and play, if it's blocked by your work or school download the game directly at the release tab.
 
 Blackjack: <https://alwaysgoobus.github.io/HTEMEL/blackjack.html>
 
